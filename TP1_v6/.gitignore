@@ -1,0 +1,11 @@
+# Quartus temporary / lock files
+*.rdr.flock
+*.qsf~
+*.qpf~
+*.qws~
+db/
+output_files/
+incremental_db/
+*.sof
+*.pof
+*.sopcinfo
