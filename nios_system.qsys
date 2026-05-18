@@ -24,7 +24,7 @@
    {
       datum _sortIndex
       {
-         value = "8";
+         value = "7";
          type = "int";
       }
    }
@@ -99,19 +99,6 @@
          type = "int";
       }
    }
-   element onchip_memory.s1
-   {
-      datum _lockedAddress
-      {
-         value = "1";
-         type = "boolean";
-      }
-      datum baseAddress
-      {
-         value = "4096";
-         type = "String";
-      }
-   }
    element switches.s1
    {
       datum _lockedAddress
@@ -125,19 +112,6 @@
          type = "String";
       }
    }
-   element sdram.s1
-   {
-      datum _lockedAddress
-      {
-         value = "1";
-         type = "boolean";
-      }
-      datum baseAddress
-      {
-         value = "67108864";
-         type = "String";
-      }
-   }
    element LEDs.s1
    {
       datum _lockedAddress
@@ -148,6 +122,32 @@
       datum baseAddress
       {
          value = "12288";
+         type = "String";
+      }
+   }
+   element onchip_memory.s1
+   {
+      datum _lockedAddress
+      {
+         value = "1";
+         type = "boolean";
+      }
+      datum baseAddress
+      {
+         value = "4096";
+         type = "String";
+      }
+   }
+   element sdram.s1
+   {
+      datum _lockedAddress
+      {
+         value = "1";
+         type = "boolean";
+      }
+      datum baseAddress
+      {
+         value = "67108864";
          type = "String";
       }
    }
@@ -167,14 +167,6 @@
          type = "int";
       }
    }
-   element up_clocks_0
-   {
-      datum _sortIndex
-      {
-         value = "7";
-         type = "int";
-      }
-   }
 }
 ]]></parameter>
  <parameter name="clockCrossingAdapter" value="HANDSHAKE" />
@@ -190,7 +182,7 @@
  <parameter name="projectName" value="lights.qpf" />
  <parameter name="sopcBorderPoints" value="false" />
  <parameter name="systemHash" value="1" />
- <parameter name="timeStamp" value="1779097286354" />
+ <parameter name="timeStamp" value="1779097753384" />
  <parameter name="useTestBenchNamingPattern" value="false" />
  <instanceScript></instanceScript>
  <interface name="reset" internal="clk_0.clk_in_reset" type="reset" dir="end" />
@@ -206,11 +198,6 @@
    dir="end" />
  <interface name="clk" internal="clk_0.clk_in" type="clock" dir="end" />
  <interface name="sdram_wire" internal="sdram.wire" type="conduit" dir="end" />
- <interface
-   name="sdram_clk"
-   internal="up_clocks_0.sdram_clk"
-   type="clock"
-   dir="start" />
  <interface
    name="dc_motor_p_r"
    internal="PWM_avalon_interface_0.conduit_end_1"
@@ -467,16 +454,6 @@
   <parameter name="clockRate" value="50000000" />
   <parameter name="componentName" value="$${FILENAME}_sdram" />
  </module>
- <module kind="altera_up_clocks" version="13.0" enabled="1" name="up_clocks_0">
-  <parameter name="board" value="DE0-Nano" />
-  <parameter name="sys_clk_freq" value="50" />
-  <parameter name="sdram_clk" value="true" />
-  <parameter name="vga_clk" value="false" />
-  <parameter name="audio_clk" value="true" />
-  <parameter name="audio_clk_freq" value="12.288" />
-  <parameter name="AUTO_CLK_IN_PRIMARY_CLOCK_RATE" value="50000000" />
-  <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone IV E" />
- </module>
  <module
    kind="PWM_avalon_interface"
    version="1.0"
@@ -626,46 +603,6 @@
    start="nios2_qsys_0.jtag_debug_module_reset"
    end="sdram.reset" />
  <connection
-   kind="reset"
-   version="13.0"
-   start="clk_0.clk_reset"
-   end="up_clocks_0.clk_in_primary_reset" />
- <connection
-   kind="clock"
-   version="13.0"
-   start="clk_0.clk"
-   end="up_clocks_0.clk_in_primary" />
- <connection
-   kind="reset"
-   version="13.0"
-   start="nios2_qsys_0.jtag_debug_module_reset"
-   end="up_clocks_0.clk_in_primary_reset" />
- <connection
-   kind="clock"
-   version="13.0"
-   start="up_clocks_0.sys_clk"
-   end="nios2_qsys_0.clk" />
- <connection
-   kind="clock"
-   version="13.0"
-   start="up_clocks_0.sys_clk"
-   end="onchip_memory.clk1" />
- <connection
-   kind="clock"
-   version="13.0"
-   start="up_clocks_0.sys_clk"
-   end="switches.clk" />
- <connection
-   kind="clock"
-   version="13.0"
-   start="up_clocks_0.sys_clk"
-   end="LEDs.clk" />
- <connection
-   kind="clock"
-   version="13.0"
-   start="up_clocks_0.sys_clk"
-   end="jtag_uart.clk" />
- <connection
    kind="clock"
    version="13.0"
    start="clk_0.clk"
@@ -684,6 +621,15 @@
   <parameter name="baseAddress" value="0x0020" />
   <parameter name="defaultConnection" value="false" />
  </connection>
+ <connection kind="clock" version="13.0" start="clk_0.clk" end="nios2_qsys_0.clk" />
+ <connection
+   kind="clock"
+   version="13.0"
+   start="clk_0.clk"
+   end="onchip_memory.clk1" />
+ <connection kind="clock" version="13.0" start="clk_0.clk" end="switches.clk" />
+ <connection kind="clock" version="13.0" start="clk_0.clk" end="LEDs.clk" />
+ <connection kind="clock" version="13.0" start="clk_0.clk" end="jtag_uart.clk" />
  <interconnectRequirement for="$system" name="qsys_mm.clockCrossingAdapter" value="HANDSHAKE" />
  <interconnectRequirement for="$system" name="qsys_mm.maxAdditionalLatency" value="1" />
 </system>
