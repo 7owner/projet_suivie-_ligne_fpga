@@ -16,6 +16,7 @@
  </clocktable>
  <library
    expandedCategories="Library/Verification,Library/Clock and Reset,Library/Verification/Simulation,Project,Library" />
- <window width="1616" height="868" x="-8" y="-8" />
+ <window width="1600" height="852" x="-8" y="-8" />
  <generation synthesis="VHDL" />
+ <hdlexample language="VHDL" />
 </preferences>
