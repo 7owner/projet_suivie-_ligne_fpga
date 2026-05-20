@@ -63,6 +63,12 @@ Ce bloc est l'interface entre le Nios II et le generateur PWM. Il expose un escl
 
 Il memorise les commandes ecrites par le Nios II puis les transmet au bloc `PWM_generation`.
 
+Concretement, cette interface PWM realise trois fonctions :
+
+- elle adapte un bloc purement materiel a une vue "registre memoire" exploitable par le Nios II ;
+- elle separe la commande moteur droit et la commande moteur gauche via `address(0)` ;
+- elle fournit une interface proprement integrable dans Qsys, avec clock, reset, esclave Avalon-MM et sorties exportees.
+
 ### 3.4 `PWM_generation.vhd`
 
 Ce bloc realise la generation PWM materielle a partir de deux mots de commande 16 bits. Il produit quatre sorties :
@@ -139,7 +145,23 @@ Le Nios II dialogue avec l'IP PWM au travers du **bus Avalon Memory-Mapped**. Ce
 - pas de protocole complexe ni de logique de flux a maintenir ;
 - adapte a des commandes de controle deterministes et peu volumineuses.
 
-### 5.2 Communication IP <-> exterieur : interface `conduit`
+### 5.2 Alternative possible : deux conduits de commande
+
+Le projet aurait aussi pu etre realise sans interface Avalon-MM complete, en exposant simplement **deux conduits de commande** :
+
+- un conduit 16 bits pour la commande moteur droit ;
+- un conduit 16 bits pour la commande moteur gauche.
+
+Cette approche aurait ete faisable si l'objectif avait uniquement ete de relier une logique materielle a un autre bloc HDL. En revanche, pour un pilotage par **Nios II**, elle est moins adaptee :
+
+- un conduit n'est pas un peripherique memoire adresse ;
+- il n'offre pas directement le modele lecture/ecriture standard attendu par le logiciel embarque ;
+- il faut ajouter davantage de logique d'adaptation autour du processeur ou utiliser d'autres mecanismes de passage de commandes ;
+- l'integration dans Qsys est moins propre qu'un esclave Avalon-MM lorsqu'on veut faire du controle logiciel.
+
+Le choix d'une interface PWM en **Avalon-MM** est donc plus professionnel dans ce contexte : le composant devient un vrai peripherique du SoC, adresse en memoire, documentable, testable et reutilisable.
+
+### 5.3 Communication IP <-> exterieur : interface `conduit`
 
 Les sorties moteur ne transitent pas sur Avalon-ST ni via un second bus memoire. Elles sont exportees par Qsys sous forme de **conduits** vers le top-level FPGA.
 
@@ -157,7 +179,7 @@ Dans `lights.vhd`, elles sont raccordees directement aux broches moteur :
 - `MTRL_P`
 - `MTRL_N`
 
-### 5.3 Interfaces d'infrastructure
+### 5.4 Interfaces d'infrastructure
 
 Outre Avalon-MM, l'IP expose egalement :
 
@@ -251,7 +273,19 @@ void moteurs_stop(void)
 5. Les sorties PWM sont exportees hors du sous-systeme Qsys par conduits.
 6. Le top-level `lights.vhd` relie ces sorties aux broches du driver moteur.
 
-## 10. Structure du Depot
+## 10. Travail Realise et Resultat Obtenu
+
+Le travail mene dans ce projet a consiste a :
+
+- partir d'un generateur PWM HDL existant ;
+- concevoir une interface `PWM_avalon_interface` compatible Avalon-MM ;
+- encapsuler l'ensemble sous forme d'IP personnalisable dans Qsys ;
+- integrer cet IP au SoC Nios II avec SDRAM, PIO et JTAG UART ;
+- piloter ensuite les moteurs depuis le logiciel C par ecritures memoire.
+
+Le resultat obtenu est un composant PWM exploitable comme un vrai peripherique du systeme. Le Nios II peut envoyer des consignes de vitesse et de direction en ecrivant dans deux registres simples, tandis que la generation du signal PWM reste geree en materiel, a frequence stable, sans charge de calcul sur le processeur.
+
+## 11. Structure du Depot
 
 ```text
 .
@@ -265,14 +299,14 @@ void moteurs_stop(void)
 |-- lights.qsf                  Contraintes et brochage Quartus
 ```
 
-## 11. Points d'Attention d'Integration
+## 12. Points d'Attention d'Integration
 
 - le composant PWM n'utilise pas d'interruptions ;
 - la commande des moteurs se fait exclusivement par acces memoire Avalon-MM ;
 - les sorties moteurs sont des **conduits materiels**, pas des peripheriques memoire ;
 - le projet est concu pour un deploiement Quartus/Qsys avec chargement logiciel Nios II via JTAG.
 
-## 12. References du Projet
+## 13. References du Projet
 
 - `IPCORE/PWM_generation.vhd`
 - `IPCORE/pwm_avalon_interface.vhd`
