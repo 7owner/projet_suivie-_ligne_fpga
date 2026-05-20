@@ -59,10 +59,11 @@ dc_motor_p_R <= PWMR when  s_writedataR(13)='1' and s_writedataR(12)='0' else
 					'0';
 dc_motor_n_R <= PWMR when  s_writedataR(13)='1' and s_writedataR(12)='1' else
 					'0';
-dc_motor_p_L <= '0' when  s_writedataL(13)='1' and s_writedataL(12)='0' else
-					PWML;
-dc_motor_n_L <= '0' when  s_writedataL(13)='1' and s_writedataL(12)='1' else
-					PWML;				
+-- Canal gauche en polarite miroir, avec sorties forcees a 0 si GO=0.
+dc_motor_p_L <= PWML when s_writedataL(13)='1' and s_writedataL(12)='1' else
+					'0';
+dc_motor_n_L <= PWML when s_writedataL(13)='1' and s_writedataL(12)='0' else
+					'0';				
 
 
 
