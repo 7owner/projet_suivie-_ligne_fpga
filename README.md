@@ -2,7 +2,7 @@
 
 ## 1. Objectif
 
-Ce projet implÃ©mente un SoC sur FPGA Cyclone IV E permettant de piloter deux moteurs DC d'une plateforme type CuteCar au moyen :
+Ce projet implémente un SoC sur FPGA Cyclone IV E permettant de piloter deux moteurs DC d'une plateforme type CuteCar au moyen :
 
 - d'un processeur **Nios II**,
 - d'un **bus Avalon Memory-Mapped (Avalon-MM)**,
