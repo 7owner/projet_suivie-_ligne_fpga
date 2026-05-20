@@ -1,16 +1,17 @@
-# Quartus temporary / lock files
-*.rdr.flock
-*.qsf~
-*.qpf~
-*.qws~
+# Fichiers générés par Quartus
 db/
-output_files/
 incremental_db/
-*.sof
-*.pof
+output_files/
+*.rpt
 *.sopcinfo
-greybox_tmp/
-simulation/
+*.bsf
+*.cmp
+*.html
+*.qws
 *.bak
-~$*
-OneDrive_2026-04-01(1)/
+*.log
+*.jdi
+
+# Fichiers de verrouillage
+*.rdr
+*.rdr.flock

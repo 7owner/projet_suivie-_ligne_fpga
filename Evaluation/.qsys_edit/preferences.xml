@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<preferences>
+ <debug showDebugMenu="0" />
+ <systemtable filter="Default">
+  <columns>
+   <connections preferredWidth="127" />
+   <irq preferredWidth="34" />
+   <name preferredWidth="281" />
+  </columns>
+ </systemtable>
+ <clocktable>
+  <columns>
+   <clockname preferredWidth="410" />
+   <clocksource preferredWidth="409" />
+   <frequency preferredWidth="391" />
+  </columns>
+ </clocktable>
+ <library
+   expandedCategories="Library/Peripherals/Microcontroller Peripherals,Library/University Program,Project/My Own IP Cores,Library/Peripherals,Library,Library/University Program/Generic IO,Project/My IP Cores,Project" />
+ <window width="1600" height="852" x="0" y="0" />
+ <generation synthesis="VHDL" />
+ <hdlexample language="VHDL" />
+</preferences>
