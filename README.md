@@ -1,72 +1,82 @@
-# README - IPCore Acquisition Capteurs Sol Avalon-MM
+# README — IPCore Acquisition Avalon-MM pour Capteurs Sol LTC2308
 
-## 1. Objectif du projet
+# 1. Présentation du projet
 
-L'objectif du projet est de creer un **IPCore Avalon-MM** permettant au processeur **NIOS II** de :
-
-* piloter les capteurs sol du robot CuteCar,
-* lire les donnees du convertisseur ADC LTC2308,
-* acceder aux valeurs des capteurs depuis un programme C/HAL,
-* exporter des signaux de debug vers les LEDs.
-
-Le systeme repose sur :
-
-```text
-NIOS II <-> Bus Avalon-MM <-> IPCore Acquisition <-> LTC2308 <-> Capteurs IR
-```
-
----
-
-# 2. Architecture globale
-
-Le projet contient plusieurs blocs :
-
-| Bloc | Role |
-| ---------------------------------- | ----------------------------------- |
-| `nios_system.qsys` | Systeme Qsys contenant NIOS II |
-| `acquisition_avalon_interface.vhd` | IPCore Avalon-MM acquisition |
-| `capteurs_sol.vhd` | Gestion brute ADC LTC2308 |
-| `capteurs_sol_seuil.vhd` | Comparaison seuil / vecteur logique |
-| `pll_2freqs.vhd` | Generation horloges 40 MHz + 2 kHz |
-| `lights.vhd` | Top-level Quartus |
-
----
-
-# 3. Fonctionnement general
-
-## 3.1 Acquisition ADC
-
-Le module :
-
-```text
-capteurs_sol.vhd
-```
-
-pilote le convertisseur :
+Ce projet consiste à développer un **IPCore Avalon-MM** permettant au processeur **NIOS II** de communiquer avec les capteurs sol du robot CuteCar via le convertisseur analogique-numérique :
 
 ```text
 LTC2308
 ```
 
-via les signaux SPI :
+Le système permet :
 
-| Signal | Role |
-| ------------- | -------------------- |
-| `ADC_CONVSTr` | lancement conversion |
-| `ADC_SCK` | horloge SPI |
-| `ADC_SDIr` | configuration ADC |
-| `ADC_SDO` | donnees ADC |
+* l’acquisition des capteurs infrarouges,
+* la lecture des valeurs ADC depuis le logiciel HAL,
+* l’intégration dans Qsys Platform Designer,
+* l’export des signaux vers les LEDs,
+* la création d’un périphérique mémoire-mappé Avalon.
 
 ---
 
-## 3.2 Horloges utilisees
+# 2. Architecture générale
 
-La PLL genere :
+Architecture globale :
 
-| Horloge | Usage |
-| ------- | ------------------------- |
-| 40 MHz | SPI ADC |
-| 2 kHz | declenchement acquisition |
+```text
+                +------------------+
+                |     NIOS II      |
+                +------------------+
+                         |
+                         |
+                    Avalon-MM
+                         |
+                         v
+        +--------------------------------+
+        | acquisition_avalon_interface   |
+        +--------------------------------+
+              |                  |
+              |                  |
+              v                  v
+        pll_2freqs         capteurs_sol
+                                  |
+                                  |
+                                  v
+                              LTC2308
+                                  |
+                                  v
+                         Capteurs infrarouges
+```
+
+---
+
+# 3. Fichiers principaux
+
+| Fichier                            | Rôle                  |
+| ---------------------------------- | --------------------- |
+| `acquisition_avalon_interface.vhd` | IPCore Avalon-MM      |
+| `capteurs_sol.vhd`                 | Acquisition brute ADC |
+| `capteurs_sol_seuil.vhd`           | Détection noir/blanc  |
+| `pll_2freqs.vhd`                   | Génération horloges   |
+| `lights.vhd`                       | Top-level Quartus     |
+| `nios_system.qsys`                 | Système NIOS II       |
+| `acquisition_test_soc.c`           | Programme HAL         |
+
+---
+
+# 4. Fonctionnement du système
+
+Le système effectue les opérations suivantes :
+
+1. génération des horloges via PLL,
+2. pilotage SPI du LTC2308,
+3. acquisition des 7 capteurs,
+4. stockage des données dans des registres Avalon,
+5. lecture par le NIOS II,
+6. affichage des données via UART et LEDs.
+
+---
+
+# 5. PLL et horloges
 
 Le composant :
 
@@ -74,55 +84,262 @@ Le composant :
 pll_2freqs
 ```
 
-est utilise dans l'IPCore.
+génère :
+
+| Horloge | Usage                     |
+| ------- | ------------------------- |
+| 40 MHz  | Horloge SPI ADC           |
+| 2 kHz   | Déclenchement acquisition |
+
+Connexion :
+
+```vhdl
+U_PLL : pll_2freqs
+```
 
 ---
 
-# 4. Interface Avalon-MM
+# 6. Communication SPI avec le LTC2308
 
-L'IPCore expose plusieurs registres accessibles par le NIOS II.
+Le LTC2308 utilise :
 
-## Mapping memoire
+| Signal        | Fonction             |
+| ------------- | -------------------- |
+| `ADC_CONVSTr` | lancement conversion |
+| `ADC_SCK`     | horloge SPI          |
+| `ADC_SDIr`    | configuration ADC    |
+| `ADC_SDO`     | données ADC          |
+
+Ces signaux sont exportés depuis Qsys vers le top-level.
+
+---
+
+# 7. Intégration Qsys / Platform Designer
+
+L’IPCore a été intégré dans :
+
+```text
+nios_system.qsys
+```
+
+via une interface :
+
+```text
+Avalon Memory-Mapped Slave
+```
+
+Interfaces utilisées :
+
+| Interface | Type            |
+| --------- | --------------- |
+| `clock`   | Clock Sink      |
+| `resetn`  | Reset Sink      |
+| `s0`      | Avalon-MM Slave |
+| `conduit` | Export ADC      |
+
+---
+
+# 8. Mapping mémoire Avalon
+
+L’IPCore expose plusieurs registres mémoire :
 
 | Offset | Fonction |
 | ------ | -------- |
-| 0 | READY |
-| 1 | CAPT0 |
-| 2 | CAPT1 |
-| 3 | CAPT2 |
-| 4 | CAPT3 |
-| 5 | CAPT4 |
-| 6 | CAPT5 |
-| 7 | CAPT6 |
+| 0      | READY    |
+| 1      | CAPT0    |
+| 2      | CAPT1    |
+| 3      | CAPT2    |
+| 4      | CAPT3    |
+| 5      | CAPT4    |
+| 6      | CAPT5    |
+| 7      | CAPT6    |
 
-Les offsets sont accedes en HAL avec :
+Lecture via :
+
+```c
+IORD_16DIRECT()
+```
+
+Écriture via :
+
+```c
+IOWR_16DIRECT()
+```
+
+---
+
+# 9. Particularité Avalon : offsets ×4
+
+Le bus Avalon du NIOS II utilise un adressage 32 bits.
+
+Les offsets doivent donc être multipliés par 4 :
 
 ```c
 #define REG_OFFSET(x) ((x) * 4)
 ```
 
-car Avalon utilise un adressage 32 bits.
+Exemple :
 
-Le composant `acquisition_avalon_interface.vhd` est le point central du projet. Il encapsule la logique d'acquisition, expose les registres au NIOS II, gere les exports Qsys et transforme l'acquisition ADC en peripherique memoire directement exploitable en logiciel.
-
----
-
-# 5. Export des signaux Qsys
-
-Dans Qsys, plusieurs signaux ont ete exportes :
-
-| Export | Description |
-| -------------------- | ----------------- |
-| `adc_convstr_export` | ADC CONVST |
-| `adc_sck_export` | ADC SCK |
-| `adc_sdir_export` | ADC SDI |
-| `adc_sdo_export` | ADC SDO |
-| `vect_capt_export` | debug LEDs |
-| `data_ready_export` | acquisition prete |
+| Registre | Adresse réelle |
+| -------- | -------------- |
+| offset 0 | 0x00           |
+| offset 1 | 0x04           |
+| offset 2 | 0x08           |
 
 ---
 
-# 6. Top-level Quartus
+# 10. Acquisition ADC brute
+
+Le composant :
+
+```text
+capteurs_sol.vhd
+```
+
+retourne les vraies valeurs ADC des capteurs.
+
+Exemple :
+
+```text
+CAPT0 = 52
+CAPT1 = 65
+CAPT2 = 48
+```
+
+Ce composant a été utilisé pour :
+
+* déboguer le SPI,
+* vérifier les acquisitions ADC,
+* valider le LTC2308.
+
+---
+
+# 11. Utilisation de capteurs_sol_seuil
+
+Le composant :
+
+```text
+capteurs_sol_seuil.vhd
+```
+
+ajoute :
+
+* une comparaison avec un seuil,
+* la génération de :
+
+```text
+vect_capt
+```
+
+Architecture :
+
+```text
+ADC -> capteurs_sol_seuil -> vect_capt
+```
+
+---
+
+# 12. Pourquoi nous avons basculé vers capteurs_sol
+
+Pendant le debug, les valeurs retournées étaient :
+
+```text
+0
+1
+0
+1
+```
+
+car :
+
+```text
+capteurs_sol_seuil
+```
+
+retourne déjà des données logiques seuillées.
+
+Il devenait impossible de savoir si :
+
+* le problème venait du SPI,
+* du LTC2308,
+* du seuil,
+* ou des comparateurs.
+
+Nous avons donc temporairement utilisé :
+
+```text
+capteurs_sol.vhd
+```
+
+seul pour :
+
+* observer les vraies valeurs ADC,
+* valider le matériel,
+* isoler les problèmes.
+
+Architecture debug :
+
+```text
+ADC -> capteurs_sol -> Avalon
+```
+
+Une fois l’acquisition validée, il sera possible de réintroduire :
+
+```text
+capteurs_sol_seuil
+```
+
+pour :
+
+* recréer `vect_capt`,
+* réaliser le suivi de ligne,
+* piloter le robot CuteCar.
+
+---
+
+# 13. Snapshot des données
+
+Un système de snapshot a été ajouté :
+
+```vhdl
+snap_data0 <= data0_s;
+```
+
+Objectif :
+
+* stabiliser les données lues par Avalon,
+* éviter les incohérences multi-horloges.
+
+Le snapshot est réalisé sur front montant de :
+
+```vhdl
+data_ready_s
+```
+
+---
+
+# 14. Synchronisation multi-domaines
+
+Deux domaines d’horloge existent :
+
+| Domaine       | Horloge |
+| ------------- | ------- |
+| ADC           | 40 MHz  |
+| Avalon / NIOS | 50 MHz  |
+
+Pour éviter la métastabilité :
+
+```vhdl
+ready_meta
+ready_sync
+ready_old
+```
+
+ont été utilisés.
+
+---
+
+# 15. Top-level Quartus
 
 Le fichier :
 
@@ -135,7 +352,7 @@ connecte :
 * SDRAM,
 * moteurs,
 * acquisition ADC,
-* LEDs de debug.
+* LEDs.
 
 Connexion ADC :
 
@@ -148,13 +365,13 @@ adc_sdo_export     => LTC_ADC_SDO
 
 ---
 
-# 7. Debug LEDs
+# 16. Debug via LEDs
 
-Les LEDs ont ete utilisees pour verifier :
+Les LEDs ont été utilisées pour :
 
-* l'activite acquisition,
-* les donnees capteurs,
-* le signal READY.
+* visualiser READY,
+* afficher les bits ADC,
+* vérifier les acquisitions.
 
 Exemple :
 
@@ -168,77 +385,33 @@ ou :
 vect_capt_export <= snap_data0(6 downto 0);
 ```
 
-pour afficher directement les bits ADC.
-
 ---
 
-# 8. Snapshot des donnees
+# 17. Programme HAL C
 
-Un mecanisme de snapshot a ete ajoute :
-
-```vhdl
-snap_data0 <= data0_s;
-```
-
-afin de :
-
-* stabiliser les donnees ADC,
-* eviter les lectures incoherentes Avalon.
-
-Le snapshot est effectue sur front montant de :
-
-```vhdl
-data_ready_s
-```
-
----
-
-# 9. Synchronisation multi-horloge
-
-Une synchronisation a ete ajoutee entre :
-
-| Domaine | Horloge |
-| ------------- | ------- |
-| ADC | 40 MHz |
-| Avalon / NIOS | 50 MHz |
-
-avec :
-
-```vhdl
-ready_meta
-ready_sync
-ready_old
-```
-
-pour eviter les problemes de metastabilite.
-
----
-
-# 10. Programme HAL C
-
-Le logiciel HAL :
+Le programme HAL :
 
 * lit les registres Avalon,
-* affiche les valeurs ADC,
-* affiche le signal READY.
+* affiche les capteurs,
+* vérifie READY.
 
-Exemple :
+Lecture :
 
 ```c
 capt0 = acq_read(CAPT0_OFFSET);
 ```
 
-Lecture Avalon :
+Affichage :
 
 ```c
-IORD_16DIRECT(ACQ_BASE, REG_OFFSET(reg));
+printf("CAPT0 = %u\n", capt0);
 ```
 
 ---
 
-# 11. Difficultes rencontrees
+# 18. Difficultés rencontrées
 
-## 11.1 Offsets Avalon
+## 18.1 Offsets Avalon
 
 Erreur initiale :
 
@@ -252,32 +425,34 @@ Correction :
 (x) * 4
 ```
 
-a cause du bus Avalon 32 bits.
+---
+
+## 18.2 data_capture
+
+Le composant attendait une impulsion et non une clock continue.
 
 ---
 
-## 11.2 data_capture
+## 18.3 capteurs_sol_seuil
 
-Le composant attendait une impulsion.
-
-Une version utilisant une clock continue bloquait la FSM acquisition.
+Le composant masquait les valeurs ADC réelles.
 
 ---
 
-## 11.3 capteurs_sol vs capteurs_sol_seuil
+## 18.4 Synchronisation horloges
 
-Deux approches ont ete testees :
+Problèmes entre :
 
-| Module | Usage |
-| -------------------- | ---------------------------- |
-| `capteurs_sol` | donnees ADC brutes |
-| `capteurs_sol_seuil` | detection logique noir/blanc |
+* 40 MHz,
+* 50 MHz.
+
+Résolus via synchronisation Avalon.
 
 ---
 
-# 12. Procedure compilation
+# 19. Procédure de compilation
 
-Apres chaque modification :
+Après chaque modification :
 
 ```text
 1. Analyze Synthesis Files
@@ -291,20 +466,20 @@ Apres chaque modification :
 
 ---
 
-# 13. Resultat obtenu
+# 20. Résultat obtenu
 
-Le systeme permet :
+Le projet permet maintenant :
 
-* acquisition ADC depuis le NIOS II,
-* lecture des capteurs via Avalon-MM,
-* export des signaux vers LEDs,
-* communication complete FPGA <-> NIOS II <-> LTC2308.
+* communication NIOS ↔ Avalon ↔ ADC,
+* acquisition capteurs,
+* lecture via HAL,
+* export LEDs,
+* intégration Qsys complète,
+* base fonctionnelle pour le suivi de ligne du CuteCar.
 
-Le projet constitue maintenant une base solide pour :
+Le système constitue désormais une base robuste pour :
 
+* robot autonome,
 * suivi de ligne,
-* controle autonome,
-* fusion capteurs/moteurs,
-* algorithmes embarques sur CuteCar.
-
-L'accent est volontairement mis sur le composant `acquisition_avalon_interface.vhd`, qui constitue le coeur du projet et la brique de reutilisation la plus importante pour la suite.
+* contrôle moteur intelligent,
+* traitement embarqué FPGA + NIOS II.
