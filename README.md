@@ -1,82 +1,310 @@
-# Projet suivi de ligne FPGA - CUTECAR
+# README - IPCore Acquisition Capteurs Sol Avalon-MM
 
-Ce depot regroupe les differentes etapes du TP de conception FPGA autour d'une carte Altera/Intel FPGA, d'un systeme Nios II/Qsys et du robot CUTECAR. L'objectif final est de commander le robot pour detecter une ligne au sol, calculer sa position et adapter les moteurs avec des modules materiels VHDL.
+## 1. Objectif du projet
 
-## Objectifs du projet
+L'objectif du projet est de creer un **IPCore Avalon-MM** permettant au processeur **NIOS II** de :
 
-- Mettre en place un projet Quartus avec un systeme Nios II/Qsys.
-- Valider les entrees/sorties de base avec les interrupteurs et les LED.
-- Ajouter une commande PWM pour les moteurs droit et gauche.
-- Lire les capteurs de sol via l'ADC et appliquer un seuil de detection.
-- Calculer la position de la ligne a partir d'un vecteur de capteurs.
-- Commander le suivi de ligne et la rotation du robot avec des blocs VHDL dedies.
+* piloter les capteurs sol du robot CuteCar,
+* lire les donnees du convertisseur ADC LTC2308,
+* acceder aux valeurs des capteurs depuis un programme C/HAL,
+* exporter des signaux de debug vers les LEDs.
 
-## Organisation du depot
+Le systeme repose sur :
 
-| Dossier | Role |
-| --- | --- |
-| `TP1_v1/` | Premiere base Quartus/Qsys : lecture des interrupteurs et recopie sur les LED avec un programme C minimal. |
-| `TP1_v2/` | Separation plus claire entre la partie materielle (`app_hardware`) et logicielle (`app_software`) autour du meme principe LED/switches. |
-| `TP1_v3/` | Ajout de la generation PWM pour commander les deux moteurs et premiers programmes de test des vitesses. |
-| `TP1_v4/` | Integration des capteurs de sol et lecture des valeurs seuillees depuis le processeur Nios II. |
-| `TP1_v4_bis/` | Passage sur l'architecture CUTECAR : top-level robot, modules IP reutilisables et documentation du TP. |
-| `TP1_v5/` | Ajout du calcul de position de ligne (`POS.vhd`) et du module de suivi de ligne (`suivi_ligne.vhd`). |
-| `TP1_v6/` | Version la plus avancee : controle de suivi de ligne (`CTL_SL.vhd`) et controle de rotation (`CTL_Rot.vhd`) avec synchronisation sur `data_ready`. |
+```text
+NIOS II <-> Bus Avalon-MM <-> IPCore Acquisition <-> LTC2308 <-> Capteurs IR
+```
 
-## Fichiers importants
+---
 
-- `*.qpf`, `*.qsf` : fichiers de projet et d'affectation Quartus.
-- `*.qsys` : description du systeme Qsys/Platform Designer.
-- `*.vhd` : modules materiels VHDL.
-- `app_software/*.c` : programmes C executes sur Nios II.
-- `TP_DOC/*.pdf` : documents de reference du TP.
-- `seuil.xlsx` : notes/valeurs de seuil utilisees pour les capteurs de sol.
+# 2. Architecture globale
 
-## Evolution technique
+Le projet contient plusieurs blocs :
 
-### TP1_v1 et TP1_v2
+| Bloc | Role |
+| ---------------------------------- | ----------------------------------- |
+| `nios_system.qsys` | Systeme Qsys contenant NIOS II |
+| `acquisition_avalon_interface.vhd` | IPCore Avalon-MM acquisition |
+| `capteurs_sol.vhd` | Gestion brute ADC LTC2308 |
+| `capteurs_sol_seuil.vhd` | Comparaison seuil / vecteur logique |
+| `pll_2freqs.vhd` | Generation horloges 40 MHz + 2 kHz |
+| `lights.vhd` | Top-level Quartus |
 
-Les premieres versions valident la chaine Quartus/Qsys et les acces memoire-mappes depuis Nios II. Le programme `lights.c` lit l'adresse des interrupteurs et ecrit directement la valeur vers les LED. Cette etape sert de test de communication entre le processeur embarque, les peripheriques et le top-level VHDL.
+---
 
-### TP1_v3
+# 3. Fonctionnement general
 
-Cette version ajoute le module `PWM_generation.vhd`. Il genere une PWM a partir d'un mot de commande contenant :
+## 3.1 Acquisition ADC
 
-- bit 13 : activation `GO` ;
-- bit 12 : direction ;
-- bits 11 a 0 : rapport cyclique/vitesse.
+Le module :
 
-Les programmes `pwm.c` et `pwmv2.c` testent plusieurs vitesses sur les moteurs gauche et droit via des adresses memoire-mappees.
+```text
+capteurs_sol.vhd
+```
 
-### TP1_v4 et TP1_v4_bis
+pilote le convertisseur :
 
-Ces versions introduisent la lecture des capteurs de sol et leur seuillage. Le module `capteurs_sol_seuil.vhd` pilote l'ADC, recupere les canaux capteurs et produit un vecteur compact de detection. Le programme `seuils.c` lit ce vecteur cote Nios II pour valider les valeurs.
+```text
+LTC2308
+```
 
-### TP1_v5
+via les signaux SPI :
 
-La version `TP1_v5` ajoute la logique de suivi de ligne :
+| Signal | Role |
+| ------------- | -------------------- |
+| `ADC_CONVSTr` | lancement conversion |
+| `ADC_SCK` | horloge SPI |
+| `ADC_SDIr` | configuration ADC |
+| `ADC_SDO` | donnees ADC |
 
-- `POS.vhd` convertit le vecteur de capteurs en position signee de la ligne ;
-- `suivi_ligne.vhd` ajuste les PWM gauche/droite en fonction de l'erreur de position ;
-- `Top_CUTECAR.vhd` integre les modules au niveau robot.
+---
 
-### TP1_v6
+## 3.2 Horloges utilisees
 
-La version `TP1_v6` structure davantage le controle :
+La PLL genere :
 
-- `CTL_SL.vhd` calcule les commandes moteurs de suivi de ligne uniquement lors d'une nouvelle donnee ADC valide (`data_ready`) ;
-- `CTL_Rot.vhd` gere une rotation jusqu'a retrouver le capteur central, avec etat interne `IDLE`, `ROTATE`, `DONE` ;
-- les commandes moteurs sont empaquetees avec les bits `GO`, `DIR` et `duty`.
+| Horloge | Usage |
+| ------- | ------------------------- |
+| 40 MHz | SPI ADC |
+| 2 kHz | declenchement acquisition |
 
-## Utilisation
+Le composant :
 
-1. Ouvrir la version souhaitee dans Quartus avec le fichier `.qpf` correspondant.
-2. Verifier les affectations dans le fichier `.qsf`.
-3. Ouvrir le systeme `.qsys` dans Platform Designer si une regeneration est necessaire.
-4. Compiler le projet Quartus.
-5. Charger le bitstream sur la carte FPGA.
-6. Compiler et televerser le programme C Nios II lorsque la version utilise une application logicielle.
+```vhdl
+pll_2freqs
+```
 
-## Remarques Git
+est utilise dans l'IPCore.
 
-Les dossiers generes par Quartus et les artefacts de compilation sont ignores pour garder un depot lisible et exploitable. Les sources VHDL, C, fichiers de projet Quartus, fichiers Qsys, documents de TP et fichiers de seuil sont conserves.
+---
+
+# 4. Interface Avalon-MM
+
+L'IPCore expose plusieurs registres accessibles par le NIOS II.
+
+## Mapping memoire
+
+| Offset | Fonction |
+| ------ | -------- |
+| 0 | READY |
+| 1 | CAPT0 |
+| 2 | CAPT1 |
+| 3 | CAPT2 |
+| 4 | CAPT3 |
+| 5 | CAPT4 |
+| 6 | CAPT5 |
+| 7 | CAPT6 |
+
+Les offsets sont accedes en HAL avec :
+
+```c
+#define REG_OFFSET(x) ((x) * 4)
+```
+
+car Avalon utilise un adressage 32 bits.
+
+Le composant `acquisition_avalon_interface.vhd` est le point central du projet. Il encapsule la logique d'acquisition, expose les registres au NIOS II, gere les exports Qsys et transforme l'acquisition ADC en peripherique memoire directement exploitable en logiciel.
+
+---
+
+# 5. Export des signaux Qsys
+
+Dans Qsys, plusieurs signaux ont ete exportes :
+
+| Export | Description |
+| -------------------- | ----------------- |
+| `adc_convstr_export` | ADC CONVST |
+| `adc_sck_export` | ADC SCK |
+| `adc_sdir_export` | ADC SDI |
+| `adc_sdo_export` | ADC SDO |
+| `vect_capt_export` | debug LEDs |
+| `data_ready_export` | acquisition prete |
+
+---
+
+# 6. Top-level Quartus
+
+Le fichier :
+
+```text
+lights.vhd
+```
+
+connecte :
+
+* SDRAM,
+* moteurs,
+* acquisition ADC,
+* LEDs de debug.
+
+Connexion ADC :
+
+```vhdl
+adc_convstr_export => LTC_ADC_CONVST,
+adc_sck_export     => LTC_ADC_SCK,
+adc_sdir_export    => LTC_ADC_SDI,
+adc_sdo_export     => LTC_ADC_SDO
+```
+
+---
+
+# 7. Debug LEDs
+
+Les LEDs ont ete utilisees pour verifier :
+
+* l'activite acquisition,
+* les donnees capteurs,
+* le signal READY.
+
+Exemple :
+
+```vhdl
+LED <= data_ready_s & vect_capt_s;
+```
+
+ou :
+
+```vhdl
+vect_capt_export <= snap_data0(6 downto 0);
+```
+
+pour afficher directement les bits ADC.
+
+---
+
+# 8. Snapshot des donnees
+
+Un mecanisme de snapshot a ete ajoute :
+
+```vhdl
+snap_data0 <= data0_s;
+```
+
+afin de :
+
+* stabiliser les donnees ADC,
+* eviter les lectures incoherentes Avalon.
+
+Le snapshot est effectue sur front montant de :
+
+```vhdl
+data_ready_s
+```
+
+---
+
+# 9. Synchronisation multi-horloge
+
+Une synchronisation a ete ajoutee entre :
+
+| Domaine | Horloge |
+| ------------- | ------- |
+| ADC | 40 MHz |
+| Avalon / NIOS | 50 MHz |
+
+avec :
+
+```vhdl
+ready_meta
+ready_sync
+ready_old
+```
+
+pour eviter les problemes de metastabilite.
+
+---
+
+# 10. Programme HAL C
+
+Le logiciel HAL :
+
+* lit les registres Avalon,
+* affiche les valeurs ADC,
+* affiche le signal READY.
+
+Exemple :
+
+```c
+capt0 = acq_read(CAPT0_OFFSET);
+```
+
+Lecture Avalon :
+
+```c
+IORD_16DIRECT(ACQ_BASE, REG_OFFSET(reg));
+```
+
+---
+
+# 11. Difficultes rencontrees
+
+## 11.1 Offsets Avalon
+
+Erreur initiale :
+
+```c
+(x) * 2
+```
+
+Correction :
+
+```c
+(x) * 4
+```
+
+a cause du bus Avalon 32 bits.
+
+---
+
+## 11.2 data_capture
+
+Le composant attendait une impulsion.
+
+Une version utilisant une clock continue bloquait la FSM acquisition.
+
+---
+
+## 11.3 capteurs_sol vs capteurs_sol_seuil
+
+Deux approches ont ete testees :
+
+| Module | Usage |
+| -------------------- | ---------------------------- |
+| `capteurs_sol` | donnees ADC brutes |
+| `capteurs_sol_seuil` | detection logique noir/blanc |
+
+---
+
+# 12. Procedure compilation
+
+Apres chaque modification :
+
+```text
+1. Analyze Synthesis Files
+2. Generate Qsys
+3. Compile Quartus
+4. Programmer FPGA
+5. Regenerate BSP
+6. Clean Project
+7. Build HAL
+```
+
+---
+
+# 13. Resultat obtenu
+
+Le systeme permet :
+
+* acquisition ADC depuis le NIOS II,
+* lecture des capteurs via Avalon-MM,
+* export des signaux vers LEDs,
+* communication complete FPGA <-> NIOS II <-> LTC2308.
+
+Le projet constitue maintenant une base solide pour :
+
+* suivi de ligne,
+* controle autonome,
+* fusion capteurs/moteurs,
+* algorithmes embarques sur CuteCar.
+
+L'accent est volontairement mis sur le composant `acquisition_avalon_interface.vhd`, qui constitue le coeur du projet et la brique de reutilisation la plus importante pour la suite.

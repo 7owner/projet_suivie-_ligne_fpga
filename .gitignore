@@ -1,69 +1,29 @@
-# Depots Git imbriques sauvegardes localement
-.git_backup/
-*.git-backup/
-
-# Quartus / Platform Designer - dossiers generes
-**/db/
-**/incremental_db/
-**/output_files/
-**/.qsys_edit/
-**/nios_system/synthesis/
-
-# Quartus / Nios II - fichiers generes ou temporaires
+# Fichiers générés par Quartus
+db/
+incremental_db/
+output_files/
 *.rpt
-*.summary
-*.smsg
-*.qmsg
-*.pin
-*.sof
-*.pof
-*.jdi
-*.rdr
-*.rdr.flock
-*.bak
-*.qws
-*.log
-*.logdb
 *.sopcinfo
 *.bsf
 *.cmp
 *.html
-*.elf
-*.srec
-*.ncf
-*.hex
-*.mif
-*.done
-*.qdf
-*.cdb
-*.hdb
-*.ddb
-*.rdb
-*.tdb
-*.idb
-*.hif
-*.hsd
-*.bpm
-*.kpt
-*.sci
-*.ammdb
-*.ipinfo
-*.tmw_info
-*.hier_info
-*.syn_hier_info
-*.db_info
+*.qws
+*.bak
+*.log
+*.jdi
 
-# Fichiers temporaires OS/editeurs
-.DS_Store
-Thumbs.db
-*~
+# Fichiers de verrouillage
+*.rdr
+*.rdr.flock
 
-# Autres sorties Platform Designer / ModelSim / Nios II BSP
-**/synthesis/
-**/simulation/
-**/greybox_tmp/
-**/Software_test/BSP/
-**/Software_test/obj/
-**/obj/
-*.map
-*.objdump
+# Fichiers generes par Nios II / HAL
+app_software/BSP/
+app_software/obj/
+app_software/*.elf
+app_software/*.map
+app_software/*.objdump
+app_software/*.srec
+*.tcl~
+
+# Preferences locales Qsys
+.qsys_edit/
