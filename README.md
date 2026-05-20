@@ -1,82 +1,367 @@
-# Projet suivi de ligne FPGA - CUTECAR
+# README – Composant Qsys `swap_bytes_component`
 
-Ce depot regroupe les differentes etapes du TP de conception FPGA autour d'une carte Altera/Intel FPGA, d'un systeme Nios II/Qsys et du robot CUTECAR. L'objectif final est de commander le robot pour detecter une ligne au sol, calculer sa position et adapter les moteurs avec des modules materiels VHDL.
+## 1. Objectif du projet
 
-## Objectifs du projet
+Le but de ce projet est de créer un **composant matériel personnalisé Qsys / Platform Designer** connecté au bus **Avalon Memory-Mapped (Avalon-MM Slave)**.
 
-- Mettre en place un projet Quartus avec un systeme Nios II/Qsys.
-- Valider les entrees/sorties de base avec les interrupteurs et les LED.
-- Ajouter une commande PWM pour les moteurs droit et gauche.
-- Lire les capteurs de sol via l'ADC et appliquer un seuil de detection.
-- Calculer la position de la ligne a partir d'un vecteur de capteurs.
-- Commander le suivi de ligne et la rotation du robot avec des blocs VHDL dedies.
+Ce composant permet de réaliser une **inversion d’octets** sur un mot de 32 bits.
 
-## Organisation du depot
+---
 
-| Dossier | Role |
-| --- | --- |
-| `TP1_v1/` | Premiere base Quartus/Qsys : lecture des interrupteurs et recopie sur les LED avec un programme C minimal. |
-| `TP1_v2/` | Separation plus claire entre la partie materielle (`app_hardware`) et logicielle (`app_software`) autour du meme principe LED/switches. |
-| `TP1_v3/` | Ajout de la generation PWM pour commander les deux moteurs et premiers programmes de test des vitesses. |
-| `TP1_v4/` | Integration des capteurs de sol et lecture des valeurs seuillees depuis le processeur Nios II. |
-| `TP1_v4_bis/` | Passage sur l'architecture CUTECAR : top-level robot, modules IP reutilisables et documentation du TP. |
-| `TP1_v5/` | Ajout du calcul de position de ligne (`POS.vhd`) et du module de suivi de ligne (`suivi_ligne.vhd`). |
-| `TP1_v6/` | Version la plus avancee : controle de suivi de ligne (`CTL_SL.vhd`) et controle de rotation (`CTL_Rot.vhd`) avec synchronisation sur `data_ready`. |
+## 2. Structure du mot 32 bits
 
-## Fichiers importants
+Le mot est organisé comme suit :
 
-- `*.qpf`, `*.qsf` : fichiers de projet et d'affectation Quartus.
-- `*.qsys` : description du systeme Qsys/Platform Designer.
-- `*.vhd` : modules materiels VHDL.
-- `app_software/*.c` : programmes C executes sur Nios II.
-- `TP_DOC/*.pdf` : documents de reference du TP.
-- `seuil.xlsx` : notes/valeurs de seuil utilisees pour les capteurs de sol.
+```text
+[ Octet3 | Octet2 | Octet1 | Octet0 ]
+```
 
-## Evolution technique
+Exemple :
 
-### TP1_v1 et TP1_v2
+```text
+0x12 34 56 78
+```
 
-Les premieres versions valident la chaine Quartus/Qsys et les acces memoire-mappes depuis Nios II. Le programme `lights.c` lit l'adresse des interrupteurs et ecrit directement la valeur vers les LED. Cette etape sert de test de communication entre le processeur embarque, les peripheriques et le top-level VHDL.
+avec :
 
-### TP1_v3
+| Octet  | Valeur |
+| ------ | ------ |
+| Octet3 | 0x12   |
+| Octet2 | 0x34   |
+| Octet1 | 0x56   |
+| Octet0 | 0x78   |
 
-Cette version ajoute le module `PWM_generation.vhd`. Il genere une PWM a partir d'un mot de commande contenant :
+---
 
-- bit 13 : activation `GO` ;
-- bit 12 : direction ;
-- bits 11 a 0 : rapport cyclique/vitesse.
+# 3. Modes d’inversion implémentés
 
-Les programmes `pwm.c` et `pwmv2.c` testent plusieurs vitesses sur les moteurs gauche et droit via des adresses memoire-mappees.
+Deux modes de swap ont été ajoutés.
 
-### TP1_v4 et TP1_v4_bis
+---
 
-Ces versions introduisent la lecture des capteurs de sol et leur seuillage. Le module `capteurs_sol_seuil.vhd` pilote l'ADC, recupere les canaux capteurs et produit un vecteur compact de detection. Le programme `seuils.c` lit ce vecteur cote Nios II pour valider les valeurs.
+## MODE 0
 
-### TP1_v5
+Transformation :
 
-La version `TP1_v5` ajoute la logique de suivi de ligne :
+```text
+[ O3 | O2 | O1 | O0 ]
+→
+[ O0 | O1 | O2 | O3 ]
+```
 
-- `POS.vhd` convertit le vecteur de capteurs en position signee de la ligne ;
-- `suivi_ligne.vhd` ajuste les PWM gauche/droite en fonction de l'erreur de position ;
-- `Top_CUTECAR.vhd` integre les modules au niveau robot.
+Exemple :
 
-### TP1_v6
+```text
+Entrée  : 0x12345678
+Sortie  : 0x78563412
+```
 
-La version `TP1_v6` structure davantage le controle :
+---
 
-- `CTL_SL.vhd` calcule les commandes moteurs de suivi de ligne uniquement lors d'une nouvelle donnee ADC valide (`data_ready`) ;
-- `CTL_Rot.vhd` gere une rotation jusqu'a retrouver le capteur central, avec etat interne `IDLE`, `ROTATE`, `DONE` ;
-- les commandes moteurs sont empaquetees avec les bits `GO`, `DIR` et `duty`.
+## MODE 1
 
-## Utilisation
+Transformation :
 
-1. Ouvrir la version souhaitee dans Quartus avec le fichier `.qpf` correspondant.
-2. Verifier les affectations dans le fichier `.qsf`.
-3. Ouvrir le systeme `.qsys` dans Platform Designer si une regeneration est necessaire.
-4. Compiler le projet Quartus.
-5. Charger le bitstream sur la carte FPGA.
-6. Compiler et televerser le programme C Nios II lorsque la version utilise une application logicielle.
+```text
+[ O3 | O2 | O1 | O0 ]
+→
+[ O1 | O0 | O3 | O2 ]
+```
 
-## Remarques Git
+Exemple :
 
-Les dossiers generes par Quartus et les artefacts de compilation sont ignores pour garder un depot lisible et exploitable. Les sources VHDL, C, fichiers de projet Quartus, fichiers Qsys, documents de TP et fichiers de seuil sont conserves.
+```text
+Entrée  : 0x12345678
+Sortie  : 0x56781234
+```
+
+---
+
+# 4. Architecture générale du système
+
+Le système contient :
+
+* Un processeur NIOS II
+* Un composant Avalon-MM Slave `swap_bytes_component`
+* Un registre PIO `pio_select`
+* Le bus Avalon-MM
+
+Architecture :
+
+```text
+                =========================
+                =      NIOS II CPU      =
+                =   Avalon-MM MASTER    =
+                =========================
+                           |
+                           | Avalon-MM
+                           v
+
+    ==================================================
+    ||          AVALON INTERCONNECT / BUS           ||
+    ==================================================
+              |                           |
+              |                           |
+              v                           v
+
+   =====================      =====================
+   =    pio_select      =      = swap_bytes_comp =
+   = Avalon-MM Slave    =      = Avalon-MM Slave =
+   =====================      =====================
+              |                           |
+              | q(0)                      |
+              +-----------> mode_select --+
+
+```
+
+---
+
+# 5. Fonctionnement du système
+
+Le processeur NIOS II :
+
+1. écrit un mode dans `pio_select`
+2. écrit un mot 32 bits dans `swap_bytes_component`
+3. lit le résultat après inversion
+
+---
+
+# 6. Fonctionnement du PIO `pio_select`
+
+Le composant `pio_select` est un simple registre 16 bits.
+
+Il permet de sélectionner le mode de swap.
+
+---
+
+## Interface du PIO
+
+```vhdl
+ENTITY pio_select IS
+    PORT(
+        clk        : IN  STD_LOGIC;
+        reset_n    : IN  STD_LOGIC;
+        chipselect : IN  STD_LOGIC;
+        write      : IN  STD_LOGIC;
+        writedata  : IN  STD_LOGIC_VECTOR(15 DOWNTO 0);
+        q          : OUT STD_LOGIC_VECTOR(15 DOWNTO 0)
+    );
+END pio_select;
+```
+
+---
+
+## Fonctionnement
+
+Quand :
+
+```text
+chipselect = '1'
+ET
+write = '1'
+```
+
+alors :
+
+```text
+q <= writedata
+```
+
+Le bit :
+
+```text
+q(0)
+```
+
+est utilisé comme :
+
+```text
+mode_select
+```
+
+du composant swap.
+
+---
+
+# 7. Fonctionnement du composant `swap_bytes_component`
+
+---
+
+## Interface Avalon-MM
+
+```vhdl
+ENTITY swap_bytes IS
+    PORT(
+        clk         : IN  std_logic;
+        reset_n     : IN  std_logic;
+        address     : IN  std_logic_vector(1 DOWNTO 0);
+        chipselect  : IN  std_logic;
+        read        : IN  std_logic;
+        write       : IN  std_logic;
+        writedata   : IN  std_logic_vector(31 DOWNTO 0);
+        readdata    : OUT std_logic_vector(31 DOWNTO 0);
+        waitrequest : OUT std_logic;
+        mode_select : IN  std_logic
+    );
+END swap_bytes;
+```
+
+---
+
+# 8. Fonctionnement interne du swap
+
+Quand le CPU écrit dans le composant :
+
+```text
+chipselect = 1
+write = 1
+```
+
+le composant :
+
+1. récupère `writedata`
+2. réalise le swap d’octets
+3. stocke le résultat dans `reg_out`
+
+Puis :
+
+```text
+readdata <= reg_out
+```
+
+---
+
+# 9. Pourquoi utiliser Avalon-MM ?
+
+Avalon-MM permet :
+
+* la communication CPU ↔ périphérique
+* la lecture/écriture mémoire
+* l’intégration facile dans Qsys
+* la création de périphériques personnalisés
+
+---
+
+# 10. Signaux Avalon utilisés
+
+| Signal      | Rôle                      |
+| ----------- | ------------------------- |
+| clk         | horloge système           |
+| reset_n     | reset actif bas           |
+| chipselect  | sélection du périphérique |
+| write       | écriture Avalon           |
+| read        | lecture Avalon            |
+| writedata   | données envoyées          |
+| readdata    | données lues              |
+| waitrequest | attente bus               |
+
+---
+
+# 11. Configuration Qsys
+
+## Composant `swap_bytes_component`
+
+Type :
+
+```text
+Avalon Memory-Mapped Slave
+```
+
+Adresse :
+
+```text
+0x0040
+```
+
+---
+
+## Composant `pio_select`
+
+Type :
+
+```text
+Avalon Memory-Mapped Slave
+```
+
+Adresse :
+
+```text
+0x0050
+```
+
+---
+
+# 12. Code C de test NIOS II
+
+Le programme C :
+
+1. écrit le mode dans le PIO
+2. écrit le mot dans le composant
+3. lit le résultat
+
+Exemple :
+
+```c
+select_write(0);
+swap_write(0x12345678);
+```
+
+Puis :
+
+```c
+output = swap_read();
+```
+
+---
+
+# 13. Résultat attendu
+
+---
+
+## MODE 0
+
+```text
+Entrée  : 0x12345678
+Sortie  : 0x78563412
+```
+
+---
+
+## MODE 1
+
+```text
+Entrée  : 0x12345678
+Sortie  : 0x56781234
+```
+
+---
+
+# 14. Visualisation sur LEDs
+
+Les LEDs affichent :
+
+```vhdl
+LED <= swapped_data(7 DOWNTO 0);
+```
+
+Cela permet de visualiser directement les bits du résultat.
+
+---
+
+# 15. Conclusion
+
+Ce projet montre :
+
+* la création d’un IP Core personnalisé
+* l’utilisation du bus Avalon-MM
+* l’intégration dans Qsys
+* le pilotage via NIOS II
+* l’échange matériel/logiciel
+* le contrôle dynamique du comportement matériel via un PIO
+
+Le système est maintenant capable de :
+
+✅ recevoir un mot 32 bits
+✅ choisir dynamiquement le type de swap
+✅ retourner le mot inversé
+✅ être piloté par logiciel depuis NIOS II
