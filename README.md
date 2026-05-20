@@ -257,7 +257,7 @@ void moteurs_stop(void)
 .
 |-- app_software/               Logiciels Nios II de test
 |-- doc/                        Documentation pedagogique et de reference
-|-- IPCORE/                     Sources HDL du composant personnalise
+|-- IPCORE/                     IP modules HDL utilises dans le projet
 |-- nios_system/                Fichiers generes par Qsys/synthese
 |-- lights.vhd                  Top-level FPGA
 |-- nios_system.qsys            Description du systeme Platform Designer
