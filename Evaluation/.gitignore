@@ -1,0 +1,16 @@
+# Quartus temporary / lock files
+*.rdr.flock
+*.qsf~
+*.qpf~
+*.qws~
+db/
+output_files/
+incremental_db/
+*.sof
+*.pof
+*.sopcinfo
+greybox_tmp/
+simulation/
+*.bak
+~$*
+OneDrive_2026-04-01(1)/
